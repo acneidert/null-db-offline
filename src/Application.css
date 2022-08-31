@@ -1,0 +1,37 @@
+* {
+  padding: 0;
+  margin: 0;
+  text-decoration: none;
+  list-style: none;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #111827;
+  color: #fff;
+  font-family: 'Roboto', sans-serif;
+  font-size: 15px;
+}
+
+a {
+  color: #f15d9f;
+  margin-left: .3em;
+}
+
+button {
+  margin: 10px;
+  padding: 40px;
+  font-size: 25px;
+}
+
+input {
+  margin: 10px;
+  padding: 40px;
+  font-size: 35px;
+}
+pre {outline: 1px solid #ccc; padding: 5px; margin: 5px; }
+.string { color: green; }
+.number { color: darkorange; }
+.boolean { color: blue; }
+.null { color: magenta; }
+.key { color: red; }

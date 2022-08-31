@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">dbCapacitor</string>
+    <string name="title_activity_main">dbCapacitor</string>
+    <string name="package_name">com.iatf.app</string>
+    <string name="custom_url_scheme">com.iatf.app</string>
+</resources>

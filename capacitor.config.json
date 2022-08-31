@@ -1,0 +1,6 @@
+{
+    "appId": "com.iatf.app",
+    "appName": "dbCapacitor",
+    "webDir": "www",
+    "bundledWebRuntime": false
+  }
