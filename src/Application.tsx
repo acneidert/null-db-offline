@@ -1,4 +1,4 @@
-import Nullstack, { NullstackClientContext } from 'nullstack';
+import Nullstack, { NullstackClientContext, NullstackEnvironment, NullstackNode, NullstackPage, NullstackParams, NullstackProject, NullstackRouter, NullstackSettings, NullstackWorker } from 'nullstack';
 import Model from './Database/Model'
 import './Application.css';
 
@@ -78,6 +78,24 @@ class Application extends Nullstack {
     this.nome = me.nome
     this.produtor = me.produtor
     this.local = me.local
+  }
+
+  async hydrate({worker}) {
+    console.log(worker);
+    App.addListener('appStateChange', async ({ isActive }) => {
+      if (isActive) {
+        return;
+      }
+      // The app state has been changed to inactive.
+      // Start the background task by calling `beforeExit`.
+      const taskId = await BackgroundTask.beforeExit(async () => {
+        // Run your code...
+        // Finish the background task as soon as everything is done.
+        BackgroundTask.finish({ taskId });
+      });
+    });
+    window.addEventListener("activate", () => {console.log('Hellor')})
+    window.addEventListener("install", () => {console.log('Hellor')})
   }
 
   clean(){

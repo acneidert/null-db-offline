@@ -27,6 +27,7 @@ export type schemaType = {
 
 export type postSyncProps = {
   _database?: any
+  data: Object
 }
 
 export type createProps ={

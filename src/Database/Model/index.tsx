@@ -20,12 +20,12 @@ const getCreateTable = (table, schema) => {
   const columns = schema.columns
     .map((coluna) => `${coluna.name} ${typeSql(coluna.type)}`)
     .join(', ');
-  return `CREATE TABLE IF NOT EXISTS ${table}
-  ( 
-    _id VARCHAR(36) PRIMARY KEY,
-    ${columns} 
-  )`;
+  return (
+    `CREATE TABLE IF NOT EXISTS ${table} ` +
+    ` (  _id VARCHAR(36) PRIMARY KEY, ${columns} )`
+  );
 };
+
 class Model<IModel> extends Nullstack<Props> {
   table: string = '';
   schema: schemaType = {
@@ -61,8 +61,8 @@ class Model<IModel> extends Nullstack<Props> {
     if (_db.isNative) {
       _db.transaction(async (tx) => {
         try {
-          if (force) await tx.executeSql(getDropTable(this._getTable()));
-          await tx.executeSql(
+          if (force) tx.executeSql(getDropTable(this._getTable()));
+          tx.executeSql(
             getCreateTable(this._getTable(), this._getSchema()),
             []
           );
@@ -73,12 +73,12 @@ class Model<IModel> extends Nullstack<Props> {
     }
   }
 
-  static async postPull({ _database }: postSyncProps) {
+  static async postPull({ _database, data }: postSyncProps) {
     const msg = 'Hello From Back';
     console.log(msg);
     return msg;
   }
-  static async postPush({ _database }: postSyncProps) {
+  static async postPush({ _database, data }: postSyncProps) {
     const msg = 'Hello From Back';
     console.log(msg);
     return msg;
@@ -89,6 +89,24 @@ class Model<IModel> extends Nullstack<Props> {
   async sync({ _db }) {
     const { connected } = await Network.getStatus();
     if (!connected && _db.isNative) {
+      const last_pull = await new Promise((resolve, reject) => {
+        _db.executeSql(
+          "select * from last_sync where table = ?1 and action = 'pull'",
+          [this._getTable()],
+          (res) => resolve(res.rows.length === 0 ? null : res.rows.item(0)),
+          (error) => reject(error)
+        );
+      });
+
+      const last_push = await new Promise((resolve, reject) => {
+        _db.executeSql(
+          "select * from last_sync where table = ?1 and action = 'push'",
+          [this._getTable()],
+          (res) => resolve(res.rows.length === 0 ? null : res.rows.item(0)),
+          (error) => reject(error)
+        );
+      });
+      await this.postPush({ data: {} });
     }
   }
 
@@ -186,8 +204,8 @@ class Model<IModel> extends Nullstack<Props> {
       return await this.postUpdate({ id, data });
     }
   }
-  
-  static async postDelete({_database, id}) {
+
+  static async postDelete({ _database, id }) {
     const sql = SqlBricks.delete()
       .from(this._table)
       .where({ _id: id })
