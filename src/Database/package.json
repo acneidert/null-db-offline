@@ -1,6 +1,6 @@
 {
   "name": "@acneidert/null-db-offline",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "Nullstack database offline Fisrt",
   "main": "index.js",
   "scripts": {
