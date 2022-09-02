@@ -11,20 +11,10 @@ import { typeSql } from './Column';
 import SqlBricks = require('sql-bricks');
 import { v4 as uuidv4 } from 'uuid';
 import { Network } from '@capacitor/network';
+import { getDropTable, getCreateTable, makePost } from './util';
+
 
 interface IModel {}
-const getDropTable = (table) => {
-  return `DROP TABLE IF EXISTS ${table}`;
-};
-const getCreateTable = (table, schema) => {
-  const columns = schema.columns
-    .map((coluna) => `${coluna.name} ${typeSql(coluna.type)}`)
-    .join(', ');
-  return (
-    `CREATE TABLE IF NOT EXISTS ${table} ` +
-    ` (  _id VARCHAR(36) PRIMARY KEY, ${columns} )`
-  );
-};
 
 class Model<IModel> extends Nullstack<Props> {
   table: string = '';
@@ -35,6 +25,7 @@ class Model<IModel> extends Nullstack<Props> {
   constructor(ctx: constructorProps) {
     super(ctx);
   }
+
   static get _table() {
     const me = new this();
     return me._getTable();
@@ -79,45 +70,92 @@ class Model<IModel> extends Nullstack<Props> {
     return msg;
   }
   static async postPush({ _database, data }: postSyncProps) {
-    const msg = 'Hello From Back';
-    console.log(msg);
-    return msg;
-  }
+    const mData = {
+      fazenda: {
+        created: [{ _id: '123', nome: 'Synced' }],
+        updated: [
+          {
+            _id: 'f5d88ddc-8f16-486b-ae34-3c45db36b04d',
+            data: {
+              nome: 'Sync Updated'
+            },
+          },
+        ],
+      },
+    };
+    await _database.execute('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+    await _database.beginTransaction();
 
-  getLocalChanges() {}
-
-  async sync({ _db }) {
-    const { connected } = await Network.getStatus();
-    if (!connected && _db.isNative) {
-      const last_pull = await new Promise((resolve, reject) => {
-        _db.executeSql(
-          "select * from last_sync where table = ?1 and action = 'pull'",
-          [this._getTable()],
-          (res) => resolve(res.rows.length === 0 ? null : res.rows.item(0)),
-          (error) => reject(error)
-        );
+    try {
+      Object.entries(mData).map((entries) => {
+        const [table, changes] = entries;
+        changes.created.forEach(async (createData) => {
+          const sql = SqlBricks.insert(table, createData).toParams({
+            placeholder: '?',
+          });
+          await _database.execute(sql.text, sql.values);
+        });
+        changes.updated.forEach(async (values) => {
+          const { _id, data: updateData } = values;
+          const sql = SqlBricks.update(table, {
+            ...updateData,
+            updated_at: new Date().toISOString(), // .toISOString().slice(0, 19).replace('T', ' '),
+          })
+            .where({ _id })
+            .toParams({ placeholder: '?' });
+          await _database.execute(sql.text, sql.values);
+        });
       });
-
-      const last_push = await new Promise((resolve, reject) => {
-        _db.executeSql(
-          "select * from last_sync where table = ?1 and action = 'push'",
-          [this._getTable()],
-          (res) => resolve(res.rows.length === 0 ? null : res.rows.item(0)),
-          (error) => reject(error)
-        );
-      });
-      await this.postPush({ data: {} });
+      await _database.commit();
+      return {status: 'success'};
+    } catch (e) {
+      console.log(e);
+      await _database.rollback();
+      return {status: 'error'};
     }
   }
 
-  static async postCreate({ _database, data }: postCreate) {
-    const insertData = SqlBricks.insert(this._table, data).toParams({
-      placeholder: '?',
-    });
-    return await _database.execute(insertData.text, insertData.values);
+  async sync({ _db }) {
+    const { connected } = await Network.getStatus();
+    if (connected && _db.isNative) {
+      const [sqlPull, sqlPush] = getLastPullPush(this._getTable());
+      const execute = async (sql) => {
+        return await new Promise((resolve, reject) => {
+          _db.executeSql(
+            sql.text,
+            sql.values,
+            (res) => resolve(res.rows.length === 0 ? null : res.rows.item(0)),
+            (error) => reject(error)
+          );
+        });
+      };
+
+      const last_pull = await execute(sqlPull);
+      const last_push = await execute(sqlPush);
+
+      console.log('LAST PULL', last_pull);
+      console.log('LAST PUSH', last_push);
+      /**
+        {
+          tabela: {
+            created: [
+              {...}
+            ],
+            updated: [
+              {
+                _id: '',
+                data: {} 
+              }
+            ]
+          }
+        }
+      */
+      await this.postPush({ data: {} });
+      await this.postPull({ data: {} });
+    }
   }
 
-  async create({ _db, data }: createProps) {
+  async create({ _db, data, worker }: createProps) {
     const formatedData = {
       _id: uuidv4(),
       ...data,
@@ -137,24 +175,16 @@ class Model<IModel> extends Nullstack<Props> {
         }
       });
     } else {
-      const ret = await this.postCreate({
-        data: formatedData,
+      return await makePost({
+        worker, 
+        data:formatedData, 
+        table:this._getTable(), 
+        action:'create'
       });
-      console.log(ret);
     }
   }
 
-  static async postGetById({ _database, id }) {
-    const sql = SqlBricks.select()
-      .from(this._table)
-      .where({ _id: id })
-      .toParams({ placeholder: '?' });
-    console.log(sql);
-    const [resp] = await _database.execute(sql.text, sql.values);
-    return resp;
-  }
-
-  async getById({ _db, id }) {
+  async getById({ _db, id , worker}) {
     if (_db.isNative) {
       const sql = SqlBricks.select()
         .from(this.table)
@@ -169,25 +199,19 @@ class Model<IModel> extends Nullstack<Props> {
         );
       });
     } else {
-      const resp = await this.postGetById({ id });
-      return resp.length > 0 ? resp[0] : null;
+
+      const {result} = await makePost({
+        worker, 
+        table:this._getTable(), 
+        action:'getById',
+        param: id
+      });
+      // const resp = await this.postGetById({ id });
+      return result.length > 0 ? result[0] : null;
     }
   }
 
-  static async postFind() {}
-  async find({ query }) {}
-
-  static async postUpdate({ _database, id, data }) {
-    const sql = SqlBricks.update(this._table, {
-      ...data,
-      updated_at: new Date().toISOString(), // .toISOString().slice(0, 19).replace('T', ' '),
-    })
-      .where({ _id: id })
-      .toParams({ placeholder: '?' });
-    console.log(sql);
-    return await _database.execute(sql.text, sql.values);
-  }
-  async upsert({ _db, id, data }) {
+  async upsert({ _db, id, data , worker}) {
     if (id === null) return await this.create({ data });
     if (_db.isNative) {
       const sql = SqlBricks.update(this._getTable(), data)
@@ -201,20 +225,17 @@ class Model<IModel> extends Nullstack<Props> {
         }
       });
     } else {
-      return await this.postUpdate({ id, data });
+      return await makePost({
+        worker, 
+        table:this._getTable(), 
+        action:'update',
+        data:data,
+        param: id
+      });
     }
   }
 
-  static async postDelete({ _database, id }) {
-    const sql = SqlBricks.delete()
-      .from(this._table)
-      .where({ _id: id })
-      .toParams({ placeholder: '?' });
-    console.log(sql);
-    const [resp] = await _database.execute(sql.text, sql.values);
-    return resp;
-  }
-  async delete({ _db, id }) {
+  async delete({ _db, id, worker }) {
     if (_db.isNative) {
       const sql = SqlBricks.delete()
         .from(this.table)
@@ -229,19 +250,17 @@ class Model<IModel> extends Nullstack<Props> {
         );
       });
     } else {
-      const resp = await this.postDelete({ id });
-      return resp.length > 0 ? resp[0] : null;
+      return await makePost({
+        worker, 
+        table:this._getTable(), 
+        action:'delete',
+        param: id
+      });
+      
     }
   }
-
-  static async getList({ _database }) {
-    const sql = SqlBricks.select()
-      .from(this._table)
-      .toParams({ placeholder: '?' });
-    const [ret] = await _database.execute(sql.text, sql.values);
-    return ret;
-  }
-  async list({ _db }) {
+  
+  async list({ _db, pg=1, worker }) {
     if (_db.isNative) {
       const sql = SqlBricks.select()
         .from(this._getTable())
@@ -261,7 +280,12 @@ class Model<IModel> extends Nullstack<Props> {
         );
       });
     } else {
-      return await this.getList();
+      return await makePost({
+        worker, 
+        table:this._getTable(), 
+        action:'list',
+        param: pg
+      });
     }
   }
 

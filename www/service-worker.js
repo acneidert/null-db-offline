@@ -5,11 +5,11 @@ self.context = {
     "development": false,
     "production": true,
     "mode": "spa",
-    "key": "e7522aded958ec2f6d05f721a08950bba54da551",
+    "key": "d4eed5be896ec8f8465964ef79fd4e65abb0f910",
     "name": ""
   },
   "project": {
-    "domain": "localhost",
+    "domain": "10.60.10.99",
     "name": "[dev] Dbcapacitor",
     "color": "#D22365",
     "viewport": "width=device-width, initial-scale=1, shrink-to-fit=no",

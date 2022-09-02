@@ -82,22 +82,13 @@ class Application extends Nullstack {
 
   async hydrate({worker}) {
     console.log(worker);
-    App.addListener('appStateChange', async ({ isActive }) => {
-      if (isActive) {
-        return;
-      }
-      // The app state has been changed to inactive.
-      // Start the background task by calling `beforeExit`.
-      const taskId = await BackgroundTask.beforeExit(async () => {
-        // Run your code...
-        // Finish the background task as soon as everything is done.
-        BackgroundTask.finish({ taskId });
-      });
-    });
+    
     window.addEventListener("activate", () => {console.log('Hellor')})
     window.addEventListener("install", () => {console.log('Hellor')})
   }
-
+  async sync({_models}){
+    await _models.fazenda.sync();
+  }
   clean(){
     this.id =''
     this.nome =''
@@ -125,6 +116,7 @@ class Application extends Nullstack {
         <button onclick={this.updateItem}> Update Item</button>
         <button onclick={this.getItem}> Get Item</button>
         <button onclick={this.clean}>Clean</button>
+        <button onclick={this.sync}>SYNC</button>
         <button onclick={this.delete}>Delete</button>
         <input type="text" bind={this.id} placeholder="ID" /><br/>
         <input type="text" bind={this.nome} placeholder="NOME" /><br/>

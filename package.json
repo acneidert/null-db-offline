@@ -25,6 +25,7 @@
     "@capacitor/ios": "^4.1.0",
     "@capacitor/network": "^4.0.1",
     "cordova-sqlite-storage": "^6.0.0",
+    "mysql-bricks": "^1.1.1",
     "mysql2": "^2.3.3",
     "sql-bricks": "^3.0.0",
     "uuid": "^8.3.2"

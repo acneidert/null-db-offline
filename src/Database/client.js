@@ -25,11 +25,16 @@ export const client = async (context, { dbname, models, force = false }) => {
         []
       );
     });
-
+    console.log('WORKER', context.worker.api);
+    context.worker.api = 'http://10.60.10.99:3000/'
+    console.log('WORKER_2', context.worker.api);
+    
   }
   
-  const { worker } = context;
-  console.log(worker);
+  _db.isNative = isNative;
+  context._db = _db;
+  
+
   context._models = {};
   models.map(async (model) => {
     const _m = new model();
@@ -37,8 +42,6 @@ export const client = async (context, { dbname, models, force = false }) => {
     context._models[_m.table] = _m;
   });
 
-  _db.isNative = isNative;
-  context._db = _db;
 
   return context;
 };
