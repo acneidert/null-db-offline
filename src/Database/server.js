@@ -138,6 +138,68 @@ export const server = async (context, { dbname, host, user, pass, models }) => {
         }
       }
     );
+
+    context.server.post(`/api/${model._getTable()}/pull`, async (req, res) => {
+      /**
+       * {
+       *    data: {
+       *        ini: new Date();
+       *        end: new Date()
+       *    }
+       * }
+       */
+      const {data} = deserialize(req.body);
+      const table = model._getTable();
+
+      // Get all updated
+      const sqlUpdate = SqlBricks.select().from(table).where(SqlBricks.and(
+        SqlBricks.notEq('updated_at', SqlBricks('created_at')),
+        SqlBricks.between('updated_at', data.ini, data.end),
+      )).toParams({placeholder: "?",})
+      const [updateList] = await context._database.execute(sqlUpdate.text, sqlUpdate.values);
+      const updated = updateList.map(({_id, ...data}) => {return {_id, data}})
+      // Get all created
+      const sqlCreate = SqlBricks.select().from(table).where(
+        SqlBricks.between('created_at', data.ini, data.end),
+      ).toParams({placeholder: "?",})
+      const [created] = await context._database.execute(sqlCreate.text, sqlCreate.values);
+      res.json({ created,  updated});
+    });
+
+    context.server.post(`/api/${model._getTable()}/push`, async (req, res) => {
+      const data = deserialize(req.body);
+      const table = model._getTable();
+      await context._database.execute(
+        "SET TRANSACTION ISOLATION LEVEL READ COMMITTED"
+      );
+      await context._database.beginTransaction();
+      try {
+        // Inserir os Criados
+        data.created.forEach(async (createData) => {
+          const sql = SqlBricks.insert(table, createData).toParams({
+            placeholder: "?",
+          });
+          // await context._database.execute(sql.text, sql.values);
+        });
+        // Alterar os Que precisam
+        data.updated.forEach(async (values) => {
+          const { _id, data: updateData } = values;
+          const sql = SqlBricks.update(table, {
+            ...updateData,
+            // updated_at: new Date().toISOString(),
+          })
+            .where(SqlBricks.and({ _id }, SqlBricks.gt('updated_at', updateData.updated_at)))
+            .toParams({ placeholder: "?" });
+            console.log(sql.text)
+          // await context._database.execute(sql.text, sql.values);
+        });
+        await context._database.commit();
+        res.json({ status: "ok" });
+      } catch (error) {
+        await context._database.rollback();
+        res.status(500).json({ status: "error", error });
+      }
+    });
   });
 
   return context;

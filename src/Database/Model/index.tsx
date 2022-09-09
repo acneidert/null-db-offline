@@ -11,8 +11,12 @@ import { typeSql } from './Column';
 import SqlBricks = require('sql-bricks');
 import { v4 as uuidv4 } from 'uuid';
 import { Network } from '@capacitor/network';
-import { getDropTable, getCreateTable, makePost } from './util';
-
+import {
+  getDropTable,
+  getCreateTable,
+  makePost,
+  getLastPullPush,
+} from './util';
 
 interface IModel {}
 
@@ -22,7 +26,7 @@ class Model<IModel> extends Nullstack<Props> {
     columns: [],
   };
 
-  constructor(ctx: constructorProps) {
+  constructor(ctx?: constructorProps) {
     super(ctx);
   }
 
@@ -64,61 +68,11 @@ class Model<IModel> extends Nullstack<Props> {
     }
   }
 
-  static async postPull({ _database, data }: postSyncProps) {
-    const msg = 'Hello From Back';
-    console.log(msg);
-    return msg;
-  }
-  static async postPush({ _database, data }: postSyncProps) {
-    const mData = {
-      fazenda: {
-        created: [{ _id: '123', nome: 'Synced' }],
-        updated: [
-          {
-            _id: 'f5d88ddc-8f16-486b-ae34-3c45db36b04d',
-            data: {
-              nome: 'Sync Updated'
-            },
-          },
-        ],
-      },
-    };
-    await _database.execute('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
-    await _database.beginTransaction();
-
-    try {
-      Object.entries(mData).map((entries) => {
-        const [table, changes] = entries;
-        changes.created.forEach(async (createData) => {
-          const sql = SqlBricks.insert(table, createData).toParams({
-            placeholder: '?',
-          });
-          await _database.execute(sql.text, sql.values);
-        });
-        changes.updated.forEach(async (values) => {
-          const { _id, data: updateData } = values;
-          const sql = SqlBricks.update(table, {
-            ...updateData,
-            updated_at: new Date().toISOString(), // .toISOString().slice(0, 19).replace('T', ' '),
-          })
-            .where({ _id })
-            .toParams({ placeholder: '?' });
-          await _database.execute(sql.text, sql.values);
-        });
-      });
-      await _database.commit();
-      return {status: 'success'};
-    } catch (e) {
-      console.log(e);
-      await _database.rollback();
-      return {status: 'error'};
-    }
-  }
-
-  async sync({ _db }) {
+  async sync({ _db, worker }) {
     const { connected } = await Network.getStatus();
     if (connected && _db.isNative) {
-      const [sqlPull, sqlPush] = getLastPullPush(this._getTable());
+      const table = this._getTable();
+      const [sqlPull, sqlPush] = getLastPullPush(table);
       const execute = async (sql) => {
         return await new Promise((resolve, reject) => {
           _db.executeSql(
@@ -130,28 +84,22 @@ class Model<IModel> extends Nullstack<Props> {
         });
       };
 
-      const last_pull = await execute(sqlPull);
-      const last_push = await execute(sqlPush);
+      const last_pull =
+        (await execute(sqlPull)) ?? new Date(1900, 1, 1).toISOString();
+      const last_push =
+        (await execute(sqlPush)) ?? new Date(1900, 1, 1).toISOString();
+      const new_pull = new Date().toISOString();
+      const new_push = new Date().toISOString();
 
-      console.log('LAST PULL', last_pull);
-      console.log('LAST PUSH', last_push);
-      /**
-        {
-          tabela: {
-            created: [
-              {...}
-            ],
-            updated: [
-              {
-                _id: '',
-                data: {} 
-              }
-            ]
-          }
-        }
-      */
-      await this.postPush({ data: {} });
-      await this.postPull({ data: {} });
+      const pullData = await makePost({
+        table,
+        worker,
+        action: 'pull',
+        data: {
+          ini: last_pull,
+          end: new_pull,
+        },
+      });
     }
   }
 
@@ -176,15 +124,15 @@ class Model<IModel> extends Nullstack<Props> {
       });
     } else {
       return await makePost({
-        worker, 
-        data:formatedData, 
-        table:this._getTable(), 
-        action:'create'
+        worker,
+        data: formatedData,
+        table: this._getTable(),
+        action: 'create',
       });
     }
   }
 
-  async getById({ _db, id , worker}) {
+  async getById({ _db, id, worker }) {
     if (_db.isNative) {
       const sql = SqlBricks.select()
         .from(this.table)
@@ -199,19 +147,18 @@ class Model<IModel> extends Nullstack<Props> {
         );
       });
     } else {
-
-      const {result} = await makePost({
-        worker, 
-        table:this._getTable(), 
-        action:'getById',
-        param: id
+      const { result } = await makePost({
+        worker,
+        table: this._getTable(),
+        action: 'getById',
+        param: id,
       });
       // const resp = await this.postGetById({ id });
       return result.length > 0 ? result[0] : null;
     }
   }
 
-  async upsert({ _db, id, data , worker}) {
+  async upsert({ _db, id, data, worker }) {
     if (id === null) return await this.create({ data });
     if (_db.isNative) {
       const sql = SqlBricks.update(this._getTable(), data)
@@ -226,11 +173,11 @@ class Model<IModel> extends Nullstack<Props> {
       });
     } else {
       return await makePost({
-        worker, 
-        table:this._getTable(), 
-        action:'update',
-        data:data,
-        param: id
+        worker,
+        table: this._getTable(),
+        action: 'update',
+        data: data,
+        param: id,
       });
     }
   }
@@ -251,16 +198,15 @@ class Model<IModel> extends Nullstack<Props> {
       });
     } else {
       return await makePost({
-        worker, 
-        table:this._getTable(), 
-        action:'delete',
-        param: id
+        worker,
+        table: this._getTable(),
+        action: 'delete',
+        param: id,
       });
-      
     }
   }
-  
-  async list({ _db, pg=1, worker }) {
+
+  async list({ _db, pg = 1, worker }) {
     if (_db.isNative) {
       const sql = SqlBricks.select()
         .from(this._getTable())
@@ -281,10 +227,10 @@ class Model<IModel> extends Nullstack<Props> {
       });
     } else {
       return await makePost({
-        worker, 
-        table:this._getTable(), 
-        action:'list',
-        param: pg
+        worker,
+        table: this._getTable(),
+        action: 'list',
+        param: pg,
       });
     }
   }

@@ -25,11 +25,12 @@ export const client = async (context, { dbname, models, force = false }) => {
         []
       );
     });
-    console.log('WORKER', context.worker.api);
-    context.worker.api = 'http://10.60.10.99:3000/'
-    console.log('WORKER_2', context.worker.api);
-    
+
   }
+  
+  context.worker.api = context.environment.development
+    ? context.settings.apidev
+    : context.settings.api;
   
   _db.isNative = isNative;
   context._db = _db;

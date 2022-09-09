@@ -33,6 +33,7 @@ export type postSyncProps = {
 export type createProps ={
   _db?: typeSQLitePlugin;
   data: Object;
+  worker?: Object;
 }
  export type constructorProps = {
   ctx?: NullstackServerContext

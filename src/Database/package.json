@@ -3,8 +3,7 @@
   "version": "0.1.2",
   "description": "Nullstack database offline Fisrt",
   "main": "index.js",
-  "scripts": {
-  },
+  "scripts": {},
   "author": "Andre Neidert <acneidert@gmail.com>",
   "license": "ISC",
   "devDependencies": {
@@ -12,13 +11,14 @@
     "nullstack": "~0.15.0"
   },
   "dependencies": {
-    "@awesome-cordova-plugins/sqlite": "^5.44.0",
     "@awesome-cordova-plugins/core": "^5.44.0",
-    "cordova-sqlite-storage": "^6.0.0",
-    "@capacitor/network": "^4.0.1",
+    "@awesome-cordova-plugins/sqlite": "^5.44.0",
     "@capacitor/core": "^4.1.0",
-    "sql-bricks": "^3.0.0",
+    "@capacitor/network": "^4.0.1",
+    "axios": "^0.27.2",
+    "cordova-sqlite-storage": "^6.0.0",
     "mysql2": "^2.3.3",
+    "sql-bricks": "^3.0.0",
     "uuid": "^8.3.2"
   }
 }
