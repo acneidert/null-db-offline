@@ -5,12 +5,12 @@ self.context = {
     "development": false,
     "production": true,
     "mode": "spa",
-    "key": "d4eed5be896ec8f8465964ef79fd4e65abb0f910",
+    "key": "ead9ad68927dc170757a5a1345b3cf99c4f02276",
     "name": ""
   },
   "project": {
-    "domain": "10.60.10.99",
-    "name": "[dev] Dbcapacitor",
+    "domain": "localhost",
+    "name": "Dbcapacitor",
     "color": "#D22365",
     "viewport": "width=device-width, initial-scale=1, shrink-to-fit=no",
     "type": "website",
@@ -33,7 +33,10 @@ self.context = {
       "512": "/icon-512x512.png"
     }
   },
-  "settings": {},
+  "settings": {
+    "api": "https://845f-143-208-196-174.sa.ngrok.io",
+    "apidev": "https://845f-143-208-196-174.sa.ngrok.io"
+  },
   "worker": {
     "enabled": true,
     "fetching": false,

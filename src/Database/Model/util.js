@@ -1,3 +1,6 @@
+import axios from 'axios';
+import SqlBricks from 'sql-bricks';
+import { typeSql } from './Column';
 import deserialize from 'nullstack/shared/deserialize';
 
 export const getDropTable = (table) => {
@@ -25,20 +28,20 @@ export const makePost = async ({
   const url = `${worker.api}/api/${table}/${action}${
     !!param ? '/' + param : ''
   }`;
-  const options = {
-    headers: worker.headers,
-    mode: 'cors',
-    cache: 'no-cache',
-    credentials: 'same-origin',
-    redirect: 'follow',
-    referrerPolicy: 'no-referrer',
-    method: 'POST',
-    body: JSON.stringify({ data } || {}),
+  const config = {
+    method: "post",
+    url,
+    headers: {
+      "Content-Type": "text/plain",
+      ...worker.headers,
+    },
+    data: JSON.stringify({ data } || {}),
   };
   try {
-    const response = await fetch(url, options);
-    const text = await response.text();
-    const payload = deserialize(text);
+    const response = await axios(config);
+    const payload = deserialize(
+      JSON.stringify(response.data)
+    );
     worker.responsive = true;
     worker.fetching = false;
     return payload;

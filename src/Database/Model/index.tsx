@@ -2,12 +2,9 @@ import Nullstack from 'nullstack';
 import {
   constructorProps,
   createProps,
-  postCreate,
-  postSyncProps,
   Props,
   schemaType,
 } from './types';
-import { typeSql } from './Column';
 import SqlBricks = require('sql-bricks');
 import { v4 as uuidv4 } from 'uuid';
 import { Network } from '@capacitor/network';
@@ -100,6 +97,7 @@ class Model<IModel> extends Nullstack<Props> {
           end: new_pull,
         },
       });
+      console.log(JSON.stringify(pullData))
     }
   }
 
